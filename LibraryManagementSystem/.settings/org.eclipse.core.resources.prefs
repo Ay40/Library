@@ -1,0 +1,7 @@
+eclipse.preferences.version=1
+encoding//src/dao/BorrowDAO.java=UTF-8
+encoding//src/dao/PurchaseDAO.java=UTF-8
+encoding//src/dao/ReturnDAO.java=UTF-8
+encoding//src/dao/SupplierDAO.java=UTF-8
+encoding//src/view/DashboardView.java=UTF-8
+encoding//src/view/PurchaseView.java=UTF-8
