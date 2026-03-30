@@ -27,7 +27,35 @@ public class BookDAO {
         }
     }
 
-    
+    public Book getBookById(int bookId) {
+
+        Book book = null;
+
+        try {
+            Connection con = DBConnection.getConnection();
+
+            String sql = "SELECT * FROM book WHERE book_id = ?";
+            PreparedStatement ps = con.prepareStatement(sql);
+            ps.setInt(1, bookId);
+
+            ResultSet rs = ps.executeQuery();
+
+            if (rs.next()) {
+                book = new Book(
+                    rs.getInt("book_id"),
+                    rs.getString("title"),
+                    rs.getInt("category_id"),
+                    rs.getInt("total_quantity"),
+                    rs.getInt("available_quantity")
+                );
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return book;
+    }
     
     public List<Book> getAllBooks() {
         List<Book> list = new ArrayList<>();

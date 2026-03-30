@@ -13,8 +13,9 @@ public class Main {
 //    	ReturnView view = new ReturnView();
 //        view.returnBook();
 
-//    	new DashboardView();
-    	PurchaseView view = new PurchaseView();
-        view.finalPurchase();
+    	new DashboardView();
+//    	PurchaseView view = new PurchaseView();
+//        view.finalPurchase();
+//    	new PurchaseView().setVisible(true);
     }
 }

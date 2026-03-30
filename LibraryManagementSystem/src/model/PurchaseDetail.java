@@ -5,10 +5,12 @@ public class PurchaseDetail {
     private int book_id;
     private int quantity;
     private double unit_price;
+    private String title;
 
     // Constructor
-    public PurchaseDetail(int book_id, int quantity, double unit_price) {
+    public PurchaseDetail(int book_id, String title,int quantity, double unit_price) {
         this.book_id = book_id;
+        this.title = title;
         this.quantity = quantity;
         this.unit_price = unit_price;
     }
@@ -26,7 +28,9 @@ public class PurchaseDetail {
         return unit_price;
     }
     
-    
+    public String getTitle() {
+        return title;
+    }
 
     // Setters (optional)
     public void setBook_id(int book_id) {
@@ -41,5 +45,8 @@ public class PurchaseDetail {
         this.unit_price = unit_price;
     }
 
+    public void setTitle(String title) {
+    	this.title = title;
+    }
 
 }

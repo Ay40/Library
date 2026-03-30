@@ -17,4 +17,7 @@ public class BookController {
     public List<Book> getBooks() {
         return bookDAO.getAllBooks();
     }
+    public Book getBookById(int bookId) {
+        return bookDAO.getBookById(bookId);
+    }
 }

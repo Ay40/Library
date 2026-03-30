@@ -2,89 +2,111 @@ package dao;
 
 import util.DBConnection;
 import java.sql.*;
+import java.util.List;
+import model.PurchaseDetail;
 
 public class PurchaseDAO {
-	
-	public void processPurchase(int supplier_id, int admin_id, java.util.List<model.PurchaseDetail> details) {
 
-	    Connection con = null;
+    public void processPurchase(int supplier_id, int admin_id, List<PurchaseDetail> details) {
 
-	    try {
-	        con = DBConnection.getConnection();
-	        con.setAutoCommit(false); //  START TRANSACTION
+        Connection con = null;
 
-	        double total = 0;
+        try {
+            con = DBConnection.getConnection();
+            con.setAutoCommit(false); // START TRANSACTION
 
-	        for (model.PurchaseDetail d : details) {
-	            total += d.getQuantity() * d.getUnit_price();
-	        }
+            // ================= 1. CALCULATE TOTAL =================
+            double total = 0;
+            for (PurchaseDetail d : details) {
+                total += d.getQuantity() * d.getUnit_price();
+            }
 
-	        // 1. Insert Purchase
-	        String purchaseSQL = "INSERT INTO Purchase (supplier_id, admin_id, purchase_date, total_amount) VALUES (?, ?, NOW(), ?)";
-	        PreparedStatement ps1 = con.prepareStatement(purchaseSQL, Statement.RETURN_GENERATED_KEYS);
+            // ================= 2. INSERT PURCHASE =================
+            String purchaseSQL = "INSERT INTO Purchase (supplier_id, admin_id, purchase_date, total_amount) VALUES (?, ?, NOW(), ?)";
+            PreparedStatement psPurchase = con.prepareStatement(purchaseSQL, Statement.RETURN_GENERATED_KEYS);
 
-	        ps1.setInt(1, supplier_id);
-	        ps1.setInt(2, admin_id);
-	        ps1.setDouble(3, total);
-	        ps1.executeUpdate();
+            psPurchase.setInt(1, supplier_id);
+            psPurchase.setInt(2, admin_id);
+            psPurchase.setDouble(3, total);
 
-	        ResultSet rs = ps1.getGeneratedKeys();
-	        int purchase_id = 0;
-	        if (rs.next()) {
-	            purchase_id = rs.getInt(1);
-	        }
+            psPurchase.executeUpdate();
 
-	        // 2. Loop Details
-	        for (model.PurchaseDetail d : details) {
-	        	
-	        	// Check book exists FIRST
-	        	String check = "SELECT book_id FROM Book WHERE book_id = ?";
-	        	PreparedStatement psCheck = con.prepareStatement(check);
-	        	psCheck.setInt(1, d.getBook_id());
+            ResultSet rsPurchase = psPurchase.getGeneratedKeys();
+            int purchase_id = 0;
+            if (rsPurchase.next()) {
+                purchase_id = rsPurchase.getInt(1);
+            }
 
-	        	ResultSet rsCheck = psCheck.executeQuery();
+            // ================= 3. LOOP PURCHASE DETAILS =================
+            for (PurchaseDetail d : details) {
 
-	        	if (!rsCheck.next()) {
-	        	    throw new Exception("Book ID does not exist: " + d.getBook_id());
-	        	}
+                int bookId = d.getBook_id();
 
-	            // Insert Purchase Detail
-	            String detailSQL = "INSERT INTO Purchase_Detail (purchase_id, book_id, quantity, unit_price) VALUES (?, ?, ?, ?)";
-	            PreparedStatement ps2 = con.prepareStatement(detailSQL);
+                // 🔹 CASE 1: NEW BOOK
+                if (bookId == 0) {
+                    String insertBookSQL = "INSERT INTO Book (title, total_quantity, available_quantity) VALUES (?, ?, ?)";
+                    PreparedStatement psNewBook = con.prepareStatement(insertBookSQL, Statement.RETURN_GENERATED_KEYS);
 
-	            ps2.setInt(1, purchase_id);
-	            ps2.setInt(2, d.getBook_id());
-	            ps2.setInt(3, d.getQuantity());
-	            ps2.setDouble(4, d.getUnit_price());
-	            ps2.executeUpdate();
+                    psNewBook.setString(1, d.getTitle());
+                    psNewBook.setInt(2, d.getQuantity());
+                    psNewBook.setInt(3, d.getQuantity());
 
-	            // 3. Update Stock (EXISTING ONLY)
-	            String update = "UPDATE Book SET total_quantity = total_quantity + ?, available_quantity = available_quantity + ? WHERE book_id = ?";
-	            PreparedStatement ps3 = con.prepareStatement(update);
+                    psNewBook.executeUpdate();
 
-	            ps3.setInt(1, d.getQuantity());
-	            ps3.setInt(2, d.getQuantity());
-	            ps3.setInt(3, d.getBook_id());
+                    ResultSet rsBook = psNewBook.getGeneratedKeys();
+                    if (rsBook.next()) {
+                        bookId = rsBook.getInt(1); // NEW GENERATED BOOK ID
+                    }
 
-	            int rows = ps3.executeUpdate();
+                    rsBook.close();
+                    psNewBook.close();
+                }
+                // 🔹 CASE 2: EXISTING BOOK → UPDATE STOCK
+                else {
+                    String updateSQL = "UPDATE Book SET total_quantity = total_quantity + ?, available_quantity = available_quantity + ? WHERE book_id = ?";
+                    PreparedStatement psUpdate = con.prepareStatement(updateSQL);
 
-	            // 4. If book NOT exist → throw error (UI must handle new book)
-	            if (rows == 0) {
-	                throw new Exception("Book ID not found: " + d.getBook_id());
-	            }
-	        }
+                    psUpdate.setInt(1, d.getQuantity());
+                    psUpdate.setInt(2, d.getQuantity());
+                    psUpdate.setInt(3, bookId);
 
-	        con.commit(); // ✅ SUCCESS
-	        System.out.println("Purchase completed successfully!");
+                    int rows = psUpdate.executeUpdate();
+                    if (rows == 0) {
+                        throw new Exception("Book not found: " + bookId);
+                    }
 
-	    } catch (Exception e) {
-	        try {
-	            if (con != null) con.rollback(); // ❌ ROLLBACK
-	        } catch (Exception ex) {
-	            ex.printStackTrace();
-	        }
-	        e.printStackTrace();
-	    }
-	}
-    
+                    psUpdate.close();
+                }
+
+                // 🔹 INSERT PURCHASE DETAIL
+                String detailSQL = "INSERT INTO Purchase_Detail (purchase_id, book_id, quantity, unit_price) VALUES (?, ?, ?, ?)";
+                PreparedStatement psDetail = con.prepareStatement(detailSQL);
+
+                psDetail.setInt(1, purchase_id);
+                psDetail.setInt(2, bookId);
+                psDetail.setInt(3, d.getQuantity());
+                psDetail.setDouble(4, d.getUnit_price());
+
+                psDetail.executeUpdate();
+                psDetail.close();
+            }
+
+            con.commit(); // ✅ COMMIT TRANSACTION
+            System.out.println("Purchase saved successfully!");
+
+        } catch (Exception e) {
+            try {
+                if (con != null) con.rollback(); // ❌ ROLLBACK
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+            e.printStackTrace();
+        } finally {
+            try {
+                if (con != null) con.setAutoCommit(true);
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 }

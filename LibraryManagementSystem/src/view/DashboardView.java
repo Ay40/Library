@@ -238,6 +238,11 @@ public class DashboardView extends JFrame {
             case "Return":   
                 new ReturnView();
                 break;
+                
+            case "Purchases":
+                new PurchaseView();
+                break;
+                
             case "Dashboard":
                 new DashboardView();
                 break;
